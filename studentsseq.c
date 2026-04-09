@@ -4,6 +4,13 @@
 #define MAX_NOTE 100
 #define MIN_NOTE 0
 
+typedef struct {
+    int student;
+    int city;
+    int region;
+    int average;
+} Student;
+
 int main() {
     // opening the file
     const char *filename = "test.txt";
@@ -16,38 +23,60 @@ int main() {
     srand(seed);
 
     // random data generator
-    float **data = (float **)calloc(R * C * A, sizeof(float *));
-    for (int i = 0; i < R * C * A; i++) {
-        data[i] = (float *)calloc(N, sizeof(float));
-        for (int j = 0; j < N; j++) {
-            data[i][j] =
-                (float)(rand() / (RAND_MAX + 1.0 + MIN_NOTE) * MAX_NOTE);
+    float ****data = (float ****)calloc(R, sizeof(float ***));
+    for (int region = 0; region < R; region++) {
+        data[region] = (float ***)calloc(C, sizeof(float **));
+
+        for (int city = 0; city < C; city++) {
+            data[region][city] = (float **)calloc(A, sizeof(float *));
+
+            for (int student = 0; student < A; student++) {
+                data[region][city][student] = (float *)calloc(N, sizeof(float));
+
+                for (int grade = 0; grade < N; grade++) {
+                    data[region][city][student][grade] =
+                        (float)(rand() / (RAND_MAX + 1.0 + MIN_NOTE) *
+                                MAX_NOTE);
+                }
+            }
         }
     }
 
     // average notes for every student
-    float *average_student = (float *)calloc(R * C * A, sizeof(float));
-    for (int i = 0; i < R * C * A; i++) {
-        float average = 0;
-        for (int j = 0; j < N; j++) {
-            average += data[i][j];
+    float ***average_student = (float ***)calloc(R * C * A, sizeof(float **));
+    for (int region = 0; region < R; region++) {
+        average_student[region] = (float **)calloc(C, sizeof(float *));
+
+        for (int city = 0; city < C; city++) {
+            average_student[region][city] = (float *)calloc(C, sizeof(float));
+
+            for (int student = 0; student < A; student++) {
+
+                for (int grade = 0; grade < N; grade++) {
+                    average_student[region][city][student] +=
+                        data[region][city][student][grade];
+                }
+                average_student[region][city][student] /= N;
+            }
         }
-        average_student[i] = average / N;
     }
 
     // prints
-    for (int i = 0; i < R * C * A; i++) {
-        for (int j = 0; j < N; j++) {
-            printf("%.1f ", data[i][j]);
+    for (int region = 0; region < R; region++) {
+        printf("Region: %d\n", region);
+        for (int city = 0; city < C; city++) {
+            printf("City: %d\n", city);
+            for (int student = 0; student < A; student++) {
+                printf("Student %d:  ", student);
+                for (int grade = 0; grade < N; grade++) {
+                    printf("%3.1f ", data[region][city][student][grade]);
+                }
+                printf(" AG: %3.2f", average_student[region][city][student]);
+                printf("\n");
+            }
+            printf("\n");
         }
         printf("\n");
-    }
-
-    printf("\n");
-    printf("\n");
-
-    for (int i = 0; i < R * C * A; i++) {
-        printf("%.1f ", average_student[i]);
     }
 
     return 0;
