@@ -1,3 +1,6 @@
+// compile: gcc studentspar.c -o studentspar -lm -fopenmp
+// run: studentspar Trab01-AvalEstudantes-ExemploArqEntrada0-v2.txt
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
