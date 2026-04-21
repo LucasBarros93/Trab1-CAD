@@ -62,11 +62,11 @@ float ****random_data_gen(int R, int C, int A, int N) {
 
 void print_data(float ****data, int R, int C, int A, int N) {
     for (int region = 0; region < R; region++) {
-        printf("Region: %d\n", region);
+        printf("Regiao: %d\n", region);
         for (int city = 0; city < C; city++) {
-            printf("City: %d\n", city);
+            printf("Cidade: %d\n", city);
             for (int student = 0; student < A; student++) {
-                printf("Student %d:  ", student);
+                printf("Aluno %d:  ", student);
                 for (int grade = 0; grade < N; grade++) {
                     printf("%3.1f ", data[region][city][student][grade]);
                 }
@@ -80,11 +80,11 @@ void print_data(float ****data, int R, int C, int A, int N) {
 
 void print_average_student(float ***average_student, int R, int C, int A) {
     for (int region = 0; region < R; region++) {
-        printf("Region: %d\n", region);
+        printf("Regiao: %d\n", region);
         for (int city = 0; city < C; city++) {
-            printf("City: %d\n", city);
+            printf("Cidade: %d\n", city);
             for (int student = 0; student < A; student++) {
-                printf("Student %d:  ", student);
+                printf("Aluno %d:  ", student);
                 printf("%3.1f \n", average_student[region][city][student]);
             }
             printf("\n");
@@ -95,14 +95,14 @@ void print_average_student(float ***average_student, int R, int C, int A) {
 
 void print_out_city(Out **out_city, int R, int C) {
     for (int region = 0; region < R; region++) {
-        printf("Region: %d\n", region);
+        printf("Regiao: %d\n", region);
         for (int city = 0; city < C; city++) {
-            printf("City: %d ", city);
+            printf("Cidade: %d ", city);
             printf("Min: %3.1f ", out_city[region][city].min);
             printf("Max: %3.1f ", out_city[region][city].max);
-            printf("Avg: %3.1f ", out_city[region][city].average);
-            printf("Med: %3.1f ", out_city[region][city].median);
-            printf("Dsv: %3.1f ", out_city[region][city].std_deviation);
+            printf("Media: %3.1f ", out_city[region][city].average);
+            printf("Mediana: %3.1f ", out_city[region][city].median);
+            printf("DsvPdr: %3.1f ", out_city[region][city].std_deviation);
             printf("\n");
         }
         printf("\n");
@@ -111,12 +111,12 @@ void print_out_city(Out **out_city, int R, int C) {
 
 void print_out_region(Out *out_region, int R) {
     for (int region = 0; region < R; region++) {
-        printf("Region: %d ", region);
+        printf("Regiao: %d ", region);
         printf("Min: %3.1f ", out_region[region].min);
         printf("Max: %3.1f ", out_region[region].max);
-        printf("Avg: %3.1f ", out_region[region].average);
-        printf("Med: %3.1f ", out_region[region].median);
-        printf("Dsv: %3.1f ", out_region[region].std_deviation);
+        printf("Media: %3.1f ", out_region[region].average);
+        printf("Mediana: %3.1f ", out_region[region].median);
+        printf("DsvPdr: %3.1f ", out_region[region].std_deviation);
         printf("\n");
     }
     printf("\n");
@@ -126,9 +126,9 @@ void print_out_country(Out out_country) {
     printf("Brasil: ");
     printf("Min: %3.1f ", out_country.min);
     printf("Max: %3.1f ", out_country.max);
-    printf("Avg: %3.1f ", out_country.average);
-    printf("Med: %3.1f ", out_country.median);
-    printf("Dsv: %3.1f ", out_country.std_deviation);
+    printf("Media: %3.1f ", out_country.average);
+    printf("Mediana: %3.1f ", out_country.median);
+    printf("DsvPdr: %3.1f ", out_country.std_deviation);
     printf("\n");
 }
 
