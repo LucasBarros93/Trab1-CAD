@@ -344,7 +344,7 @@ int main(int argc, char **argv) {
     print_out_city(out_city, R, C);
     print_out_region(out_region, R);
     print_out_country(out_country);
-    printf("Tempo sequencial: %.6f s\n", time);
+    printf("Tempo de resposta em segundos, sem considerar E/S: %.3f s\n", time);
     
     // DEBUG PRINT
     // print_average_student(average_to_city, R, C, A);

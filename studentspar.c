@@ -368,7 +368,8 @@ int main(int argc, char **argv) {
     print_out_city(out_city, R, C);
     print_out_region(out_region, R);
     print_out_country(out_country);
-    
+    printf("Tempo de resposta em segundos, sem considerar E/S: %.3f s\n", time);
+        
     // DEBUG PRINT
     // print_average_student(average_to_city, R, C, A);
 
@@ -380,7 +381,7 @@ int main(int argc, char **argv) {
     free_nd(average_to_region, 2, (int[]){R, C * A});
     free_nd(average_to_country, 1, (int[]){R * C * A});
 
-    printf("Tempo paralelo: %.6f s\n", time);
+    
 
     return 0;
 }
