@@ -59,6 +59,22 @@ float ****random_data_gen(int R, int C, int A, int N) {
     return data;
 }
 
+void free_nd(void *ptr, int dim, int *sizes) {
+    if (ptr == NULL)
+        return;
+
+    if (dim == 1) {
+        free(ptr);
+        return;
+    }
+
+    void **p = (void **)ptr;
+    for (int i = 0; i < sizes[0]; i++) {
+        free_nd(p[i], dim - 1, sizes + 1);
+    }
+    free(ptr);
+}
+
 void print_data(float ****data, int R, int C, int A, int N) {
     for (int region = 0; region < R; region++) {
         printf("Region: %d\n", region);
@@ -144,6 +160,8 @@ int main() {
     // scaning variables
     int R, C, A, N, T, seed;
     fscanf(file, "%d %d %d %d %d %d", &R, &C, &A, &N, &T, &seed);
+
+    fclose(file);
 
     srand(seed);
 
@@ -232,6 +250,13 @@ int main() {
     print_out_city(out_city, R, C);
     print_out_region(out_region, R);
     print_out_country(out_country);
+
+    free_nd(data, 4, (int[]){R, C, A, N});
+    free_nd(out_city, 2, (int[]){R, C});
+    free_nd(out_region, 1, (int[]){R});
+    free_nd(average_to_city, 3, (int[]){R, C, A});
+    free_nd(average_to_region, 2, (int[]){R, C * A});
+    free_nd(average_to_country, 1, (int[]){R * C * A});
 
     return 0;
 }
