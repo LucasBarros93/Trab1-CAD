@@ -187,7 +187,7 @@ int main(int argc, char **argv) {
     double start = omp_get_wtime();
 
     // cálculo da média de das notas de cada aluno 
-    #pragma omp parallel for collapse(3) num_threads(T)
+    #pragma omp parallel for collapse(3) num_threads(T) shared(data, average_to_city)
     for (int region = 0; region < R; region++) {
         for (int city = 0; city < C; city++) {
             for (int student = 0; student < A; student++) {
@@ -203,7 +203,7 @@ int main(int argc, char **argv) {
     }
 
     // cálculo da nota média do aluno, mediana, min e max notas e desvio padrão por cidade para cada região
-    #pragma omp parallel for collapse(2) num_threads(T)
+    #pragma omp parallel for collapse(2) num_threads(T) shared(average_to_city, out_city, average_to_region)
     for (int region = 0; region < R; region++) {
         for (int city = 0; city < C; city++) {
 
@@ -230,7 +230,7 @@ int main(int argc, char **argv) {
     }
 
     // cálculo da nota média do aluno, mediana, min e man notas e desvio padrão por região
-    #pragma omp parallel for num_threads(T)
+    #pragma omp parallel for num_threads(T) shared(average_to_region, out_region, average_to_country)
     for (int region = 0; region < R; region++) {
 
         float soma = 0.0;
