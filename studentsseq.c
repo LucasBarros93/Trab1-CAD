@@ -6,6 +6,10 @@
 #define MAX_NOTE 100
 #define MIN_NOTE 0
 
+/*
+Struct to all the outputs and their datas
+They are City, Region, Country
+*/
 typedef struct {
     float average;
     float median;
@@ -16,6 +20,12 @@ typedef struct {
 
 } Out;
 
+// === AUXILIAR FUNCTIONS ===
+
+/*
+Function to calculate the median of an array
+Needs the size of the array
+*/
 float median(int size, float *arr) {
     if (size % 2 == 0) {
         return (arr[size / 2 - 1] + arr[size / 2]) / 2.0;
@@ -24,6 +34,10 @@ float median(int size, float *arr) {
     }
 }
 
+/*
+Function to calculate the standard deviation of an array
+Needs the size and the average of the array
+*/
 float std_deviation(int size, float average, float *arr) {
     float standardDeviation = 0;
     for (int i = 0; i < size; i++) {
@@ -34,6 +48,9 @@ float std_deviation(int size, float average, float *arr) {
     return standardDeviation;
 }
 
+/*
+To generate the data to use
+*/
 float ****random_data_gen(int R, int C, int A, int N) {
 
     float ****data = (float ****)malloc(R * sizeof(float ***));
@@ -59,6 +76,9 @@ float ****random_data_gen(int R, int C, int A, int N) {
     return data;
 }
 
+/*
+Free n dimentional array
+*/
 void free_nd(void *ptr, int dim, int *sizes) {
     if (ptr == NULL)
         return;
@@ -75,6 +95,19 @@ void free_nd(void *ptr, int dim, int *sizes) {
     free(ptr);
 }
 
+/*
+To use qsort
+*/
+int compare(const void *a, const void *b) {
+    return (*(float *)a - *(float *)b);
+}
+
+// === OUTPUT PRINTS ===
+
+/*
+Print the initial data
+Just debug
+*/
 void print_data(float ****data, int R, int C, int A, int N) {
     for (int region = 0; region < R; region++) {
         printf("Region: %d\n", region);
@@ -93,6 +126,10 @@ void print_data(float ****data, int R, int C, int A, int N) {
     }
 }
 
+/*
+Print the student data
+Just debug
+*/
 void print_average_student(float ***average_student, int R, int C, int A) {
     for (int region = 0; region < R; region++) {
         printf("Region: %d\n", region);
@@ -108,6 +145,9 @@ void print_average_student(float ***average_student, int R, int C, int A) {
     }
 }
 
+/*
+Print the output to a city
+*/
 void print_out_city(Out **out_city, int R, int C) {
     for (int region = 0; region < R; region++) {
         printf("Region: %d\n", region);
@@ -124,6 +164,9 @@ void print_out_city(Out **out_city, int R, int C) {
     }
 }
 
+/*
+Print the output to a region
+*/
 void print_out_region(Out *out_region, int R) {
     for (int region = 0; region < R; region++) {
         printf("Region: %d ", region);
@@ -137,6 +180,9 @@ void print_out_region(Out *out_region, int R) {
     printf("\n");
 }
 
+/*
+Print the output to a country
+*/
 void print_out_country(Out out_country) {
     printf("Brasil: ");
     printf("Min: %3.1f ", out_country.min);
@@ -145,11 +191,6 @@ void print_out_country(Out out_country) {
     printf("Med: %3.1f ", out_country.median);
     printf("Dsv: %3.1f ", out_country.std_deviation);
     printf("\n");
-}
-
-// to qsort
-int compare(const void *a, const void *b) {
-    return (*(float *)a - *(float *)b);
 }
 
 int main() {
@@ -161,6 +202,7 @@ int main() {
     int R, C, A, N, T, seed;
     fscanf(file, "%d %d %d %d %d %d", &R, &C, &A, &N, &T, &seed);
 
+    // closeing the file
     fclose(file);
 
     srand(seed);
@@ -168,11 +210,13 @@ int main() {
     float ****data = random_data_gen(R, C, A, N);
     // print_data(data, R, C, A, N);
 
+    // The outputs arrays
     Out **out_city = (Out **)calloc(R, sizeof(Out *));
     Out *out_region = (Out *)calloc(R, sizeof(Out));
     Out out_country;
     out_country.average = 0;
 
+    // The auxiliar arrays
     float ***average_to_city = (float ***)calloc(R, sizeof(float **));
     float **average_to_region = (float **)calloc(R, sizeof(float *));
     float *average_to_country = (float *)calloc(R * C * A, sizeof(float));
@@ -188,6 +232,7 @@ int main() {
 
             for (int student = 0; student < A; student++) {
 
+                // STUDENT CALCULATION
                 for (int grade = 0; grade < N; grade++) {
                     average_to_city[region][city][student] +=
                         data[region][city][student][grade];
@@ -199,6 +244,7 @@ int main() {
                     average_to_city[region][city][student];
             }
 
+            // CITY CALCULATION
             qsort(average_to_city[region][city], A, sizeof(float), compare);
             memcpy(average_to_region[region] + A * city,
                    average_to_city[region][city], A * sizeof(float));
@@ -214,7 +260,7 @@ int main() {
             out_city[region][city].min = average_to_city[region][city][0];
             out_city[region][city].max = average_to_city[region][city][A - 1];
 
-            // REGION
+            // REGION CALCULATION
             out_region[region].average += out_city[region][city].average;
         }
 
@@ -231,7 +277,7 @@ int main() {
         out_region[region].min = average_to_region[region][0];
         out_region[region].max = average_to_region[region][A * C - 1];
 
-        // COUNTRY
+        // COUNTRY CALCULATION
         out_country.average += out_region[region].average;
     }
 
@@ -246,11 +292,13 @@ int main() {
     out_country.min = average_to_country[0];
     out_country.max = average_to_country[A * C * R - 1];
 
+    // Prints
     print_average_student(average_to_city, R, C, A);
     print_out_city(out_city, R, C);
     print_out_region(out_region, R);
     print_out_country(out_country);
 
+    // Frees
     free_nd(data, 4, (int[]){R, C, A, N});
     free_nd(out_city, 2, (int[]){R, C});
     free_nd(out_region, 1, (int[]){R});
