@@ -30,8 +30,11 @@ float median(int size, float *arr) {
 
 float std_deviation(int size, float average, float *arr) {
     float standardDeviation = 0;
+
+    #pragma omp simd reduction(+:standardDeviation)
     for (int i = 0; i < size; i++) {
-        standardDeviation += pow(arr[i] - average, 2);
+        float diff = arr[i] - average;
+        standardDeviation += (diff * diff); 
     }
 
     standardDeviation = sqrt(standardDeviation / size);
@@ -186,95 +189,115 @@ int main(int argc, char **argv) {
     // medição do tempo inicial
     double start = omp_get_wtime();
 
-    // cálculo da média de das notas de cada aluno 
-    #pragma omp parallel for collapse(3) num_threads(T) shared(data, average_to_city)
-    for (int region = 0; region < R; region++) {
-        for (int city = 0; city < C; city++) {
-            for (int student = 0; student < A; student++) {
+    float soma_brasil = 0.0; // variável que será usada no fim da região paralela para calcular a média do país
+    // Início da região paralela
+    #pragma omp parallel num_threads(T) shared(data, average_to_city, average_to_region, average_to_country, out_city, out_region)
+    { 
+        // cálculo da média de das notas de cada ALUNO 
+        #pragma omp for collapse(3)
+        for (int region = 0; region < R; region++) {
+            for (int city = 0; city < C; city++) {
+                for (int student = 0; student < A; student++) {
+    
+                    float soma = 0.0;
+                    
+                    #pragma omp simd reduction(+:soma)
+                    for (int grade = 0; grade < N; grade++)
+                        soma += data[region][city][student][grade];
+    
+                    average_to_city[region][city][student] = soma / N;
+                }
+            }
+        }
+     
+        
+        // cálculo da nota média do aluno, mediana, min e max notas e desvio padrão por CIDADE 
+        #pragma omp for collapse(2) 
+        for (int region = 0; region < R; region++) {
+            for (int city = 0; city < C; city++) {
 
                 float soma = 0.0;
 
-                for (int grade = 0; grade < N; grade++)
-                    soma += data[region][city][student][grade];
+                #pragma omp simd reduction(+:soma)
+                for (int student = 0; student < A; student++)
+                    soma += average_to_city[region][city][student];
 
-                average_to_city[region][city][student] = soma / N;
+                out_city[region][city].average = soma / A;
+
+                qsort(average_to_city[region][city], A, sizeof(float), compare);
+
+                out_city[region][city].median = median(A, average_to_city[region][city]);
+                out_city[region][city].std_deviation =
+                    std_deviation(A, out_city[region][city].average, average_to_city[region][city]);
+
+                out_city[region][city].min = average_to_city[region][city][0];
+                out_city[region][city].max = average_to_city[region][city][A - 1];
+
+                memcpy(average_to_region[region] + city * A,
+                    average_to_city[region][city],
+                    A * sizeof(float));
             }
         }
-    }
 
-    // cálculo da nota média do aluno, mediana, min e max notas e desvio padrão por cidade para cada região
-    #pragma omp parallel for collapse(2) num_threads(T) shared(average_to_city, out_city, average_to_region)
-    for (int region = 0; region < R; region++) {
-        for (int city = 0; city < C; city++) {
+
+        // cálculo da nota média do aluno, mediana, min e man notas e desvio padrão por REGIÃO
+        #pragma omp for 
+        for (int region = 0; region < R; region++) {
 
             float soma = 0.0;
 
-            for (int student = 0; student < A; student++)
-                soma += average_to_city[region][city][student];
+            #pragma omp simd reduction(+:soma)
+            for (int i = 0; i < C * A; i++)
+                soma += average_to_region[region][i];
 
-            out_city[region][city].average = soma / A;
+            out_region[region].average = soma / (C * A);
 
-            qsort(average_to_city[region][city], A, sizeof(float), compare);
+            qsort(average_to_region[region], C * A, sizeof(float), compare);
 
-            out_city[region][city].median = median(A, average_to_city[region][city]);
-            out_city[region][city].std_deviation =
-                std_deviation(A, out_city[region][city].average, average_to_city[region][city]);
+            out_region[region].median = median(C * A, average_to_region[region]);
+            out_region[region].std_deviation =
+                std_deviation(C * A, out_region[region].average, average_to_region[region]);
 
-            out_city[region][city].min = average_to_city[region][city][0];
-            out_city[region][city].max = average_to_city[region][city][A - 1];
+            out_region[region].min = average_to_region[region][0];
+            out_region[region].max = average_to_region[region][C * A - 1];
 
-            memcpy(average_to_region[region] + city * A,
-                   average_to_city[region][city],
-                   A * sizeof(float));
+            memcpy(average_to_country + region * C * A,
+                average_to_region[region],
+                C * A * sizeof(float));
         }
-    }
 
-    // cálculo da nota média do aluno, mediana, min e man notas e desvio padrão por região
-    #pragma omp parallel for num_threads(T) shared(average_to_region, out_region, average_to_country)
-    for (int region = 0; region < R; region++) {
 
-        float soma = 0.0;
+        // cálculo da nota média do aluno, mediana, min e man notas e desvio padrão do BRASIL
+        
 
-        for (int i = 0; i < C * A; i++)
-            soma += average_to_region[region][i];
+        #pragma omp for simd reduction(+:soma_brasil) 
+        for (int i = 0; i < R * C * A; i++)
+        {
+            soma_brasil += average_to_country[i];
+        }
 
-        out_region[region].average = soma / (C * A);
+        #pragma omp single
+        {
+            out_country.average = soma_brasil / (R * C * A);
 
-        qsort(average_to_region[region], C * A, sizeof(float), compare);
+            qsort(average_to_country, R * C * A, sizeof(float), compare);
 
-        out_region[region].median = median(C * A, average_to_region[region]);
-        out_region[region].std_deviation =
-            std_deviation(C * A, out_region[region].average, average_to_region[region]);
+            out_country.median = median(R * C * A, average_to_country);
+            out_country.std_deviation =
+                std_deviation(R * C * A, out_country.average, average_to_country);
 
-        out_region[region].min = average_to_region[region][0];
-        out_region[region].max = average_to_region[region][C * A - 1];
+            out_country.min = average_to_country[0];
+            out_country.max = average_to_country[R * C * A - 1];
+        } // fim da região single
+        
 
-        memcpy(average_to_country + region * C * A,
-               average_to_region[region],
-               C * A * sizeof(float));
-    }
-
-    // cálculo da nota média do aluno, mediana, min e man notas e desvio padrão do Brasil
-    float soma = 0.0;
-
-    #pragma omp parallel for num_threads(T) reduction(+:soma) 
-    for (int i = 0; i < R * C * A; i++)
-        soma += average_to_country[i];
-
-    out_country.average = soma / (R * C * A);
-
-    qsort(average_to_country, R * C * A, sizeof(float), compare);
-
-    out_country.median = median(R * C * A, average_to_country);
-    out_country.std_deviation =
-        std_deviation(R * C * A, out_country.average, average_to_country);
-
-    out_country.min = average_to_country[0];
-    out_country.max = average_to_country[R * C * A - 1];
+    } // fim da região paralela
+    
 
     double end = omp_get_wtime();
     double time = end - start; // cálculo do tempo de execução total
 
+    
     // print_average_student(average_to_city, R, C, A);
     // print_out_city(out_city, R, C);
     // print_out_region(out_region, R);
