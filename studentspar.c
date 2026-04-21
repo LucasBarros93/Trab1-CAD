@@ -275,12 +275,12 @@ int main(int argc, char **argv) {
     double end = omp_get_wtime();
     double time = end - start; // cálculo do tempo de execução total
 
-    print_average_student(average_to_city, R, C, A);
-    print_out_city(out_city, R, C);
-    print_out_region(out_region, R);
-    print_out_country(out_country);
+    // print_average_student(average_to_city, R, C, A);
+    // print_out_city(out_city, R, C);
+    // print_out_region(out_region, R);
+    // print_out_country(out_country);
 
-    printf("Tempo: %.6f s\n", time);
+    printf("Tempo paralelo: %.6f s\n", time);
 
     return 0;
 }

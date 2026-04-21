@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <omp.h>
 
 #define MAX_NOTE 100
 #define MIN_NOTE 0
@@ -136,102 +137,147 @@ int compare(const void *a, const void *b) {
     return (*(float *)a - *(float *)b);
 }
 
-int main() {
-    // opening the file
-    const char *filename = "test.txt";
-    FILE *file = fopen(filename, "r");
+int main(int argc, char **argv) {
 
-    // scaning variables
+    if (argc < 2) {
+        printf("Por favor execute com um nome de arquivo texto, i.e., arquivo_texto.txt\n");
+        exit(-1);
+    }
+
+    FILE *inputfile;
+    char *inputfilename = (char *)malloc(256*sizeof(char));
+    strcpy(inputfilename, argv[1]);
+
+    if ((inputfile=fopen(inputfilename,"r")) == 0) {
+        printf("Erro ao abrir o arquivo.\n");
+        exit(-1);
+    }
+
+    // escaneando o arquivo
     int R, C, A, N, T, seed;
-    fscanf(file, "%d %d %d %d %d %d", &R, &C, &A, &N, &T, &seed);
+    fscanf(inputfile, "%d %d %d %d %d %d", &R, &C, &A, &N, &T, &seed);
+
+    fclose(inputfile);
 
     srand(seed);
 
     float ****data = random_data_gen(R, C, A, N);
-    // print_data(data, R, C, A, N);
 
-    Out **out_city = (Out **)calloc(R, sizeof(Out *));
-    Out *out_region = (Out *)calloc(R, sizeof(Out));
+    Out **out_city = calloc(R, sizeof(Out *));
+    Out *out_region = calloc(R, sizeof(Out));
     Out out_country;
-    out_country.average = 0;
 
-    float ***average_to_city = (float ***)calloc(R, sizeof(float **));
-    float **average_to_region = (float **)calloc(R, sizeof(float *));
-    float *average_to_country = (float *)calloc(R * C * A, sizeof(float));
+    float ***average_to_city = calloc(R, sizeof(float **));
+    float **average_to_region = calloc(R, sizeof(float *));
+    float *average_to_country = calloc(R * C * A, sizeof(float));
 
+    // alocação 
     for (int region = 0; region < R; region++) {
-        average_to_region[region] = (float *)calloc(C * A, sizeof(float));
-        average_to_city[region] = (float **)calloc(C, sizeof(float *));
-
-        out_city[region] = (Out *)calloc(C, sizeof(Out));
+        average_to_region[region] = calloc(C * A, sizeof(float));
+        average_to_city[region] = calloc(C, sizeof(float *));
+        out_city[region] = calloc(C, sizeof(Out));
 
         for (int city = 0; city < C; city++) {
-            average_to_city[region][city] = (float *)calloc(A, sizeof(float));
+            average_to_city[region][city] = calloc(A, sizeof(float));
+        }
+    }
+
+    // cálculos (MEDIR)
+    double start = omp_get_wtime();
+
+    for (int region = 0; region < R; region++) {
+
+        for (int city = 0; city < C; city++) {
+
+            float soma_city = 0.0;
 
             for (int student = 0; student < A; student++) {
 
+                float soma = 0.0;
+
                 for (int grade = 0; grade < N; grade++) {
-                    average_to_city[region][city][student] +=
-                        data[region][city][student][grade];
+                    soma += data[region][city][student][grade];
                 }
 
-                average_to_city[region][city][student] /= N;
-
-                out_city[region][city].average +=
-                    average_to_city[region][city][student];
+                average_to_city[region][city][student] = soma / N;
+                soma_city += average_to_city[region][city][student];
             }
 
-            qsort(average_to_city[region][city], A, sizeof(float), compare);
-            memcpy(average_to_region[region] + A * city,
-                   average_to_city[region][city], A * sizeof(float));
+            out_city[region][city].average = soma_city / A;
 
-            out_city[region][city].average /= A;
+            qsort(average_to_city[region][city], A, sizeof(float), compare);
+
+            memcpy(average_to_region[region] + city * A,
+                   average_to_city[region][city],
+                   A * sizeof(float));
 
             out_city[region][city].median =
                 median(A, average_to_city[region][city]);
+
             out_city[region][city].std_deviation =
-                std_deviation(A, out_city[region][city].average,
+                std_deviation(A,
+                              out_city[region][city].average,
                               average_to_city[region][city]);
 
             out_city[region][city].min = average_to_city[region][city][0];
             out_city[region][city].max = average_to_city[region][city][A - 1];
-
-            // REGION
-            out_region[region].average += out_city[region][city].average;
         }
 
-        qsort(average_to_region[region], A * C, sizeof(float), compare);
-        memcpy(average_to_country + A * C * region, average_to_region[region],
-               A * C * sizeof(float));
+        float soma_region = 0.0;
 
-        out_region[region].average /= C;
+        for (int i = 0; i < C * A; i++)
+            soma_region += average_to_region[region][i];
 
-        out_region[region].median = median(A * C, average_to_region[region]);
-        out_region[region].std_deviation = std_deviation(
-            A * C, out_region[region].average, average_to_region[region]);
+        out_region[region].average = soma_region / (C * A);
+
+        qsort(average_to_region[region], C * A, sizeof(float), compare);
+
+        memcpy(average_to_country + region * C * A,
+               average_to_region[region],
+               C * A * sizeof(float));
+
+        out_region[region].median =
+            median(C * A, average_to_region[region]);
+
+        out_region[region].std_deviation =
+            std_deviation(C * A,
+                          out_region[region].average,
+                          average_to_region[region]);
 
         out_region[region].min = average_to_region[region][0];
-        out_region[region].max = average_to_region[region][A * C - 1];
+        out_region[region].max = average_to_region[region][C * A - 1];
 
-        // COUNTRY
         out_country.average += out_region[region].average;
     }
 
-    qsort(average_to_country, A * C * R, sizeof(float), compare);
+    float soma_country = 0.0;
 
-    out_country.average /= R;
+    for (int i = 0; i < R * C * A; i++)
+        soma_country += average_to_country[i];
 
-    out_country.median = median(A * C * R, average_to_country);
+    out_country.average = soma_country / (R * C * A);
+
+    qsort(average_to_country, R * C * A, sizeof(float), compare);
+
+    out_country.median =
+        median(R * C * A, average_to_country);
+
     out_country.std_deviation =
-        std_deviation(A * C * R, out_country.average, average_to_country);
+        std_deviation(R * C * A,
+                      out_country.average,
+                      average_to_country);
 
     out_country.min = average_to_country[0];
-    out_country.max = average_to_country[A * C * R - 1];
+    out_country.max = average_to_country[R * C * A - 1];
 
-    print_average_student(average_to_city, R, C, A);
-    print_out_city(out_city, R, C);
-    print_out_region(out_region, R);
-    print_out_country(out_country);
+    double time = omp_get_wtime() - start;
+
+    // print_average_student(average_to_city, R, C, A);
+    // print_out_city(out_city, R, C);
+    // print_out_region(out_region, R);
+    // print_out_country(out_country);
+
+    printf("Tempo sequencial: %.6f s\n", time);
 
     return 0;
 }
