@@ -193,6 +193,22 @@ void print_out_country(Out out_country) {
     printf("\n");
 }
 
+/*
+Print the output winners
+*/
+void print_out_winner(int winner_region, int winner_city,
+                      float avg_winner_region, float avg_winner_city) {
+    printf("\n");
+    printf("Region: %d ", winner_region);
+    printf("Avg: %3.1f ", avg_winner_region);
+    printf("\n");
+
+    printf("City: %d ", winner_city);
+    printf("Avg: %3.1f ", avg_winner_city);
+}
+
+// === MAIN ===
+
 int main() {
     // opening the file
     const char *filename = "test.txt";
@@ -216,20 +232,28 @@ int main() {
     Out out_country;
     out_country.average = 0;
 
+    int winner_region, winner_city;
+    float avg_winner_region = 0, avg_winner_city = 0;
+
     // The auxiliar arrays
     float ***average_to_city = (float ***)calloc(R, sizeof(float **));
     float **average_to_region = (float **)calloc(R, sizeof(float *));
     float *average_to_country = (float *)calloc(R * C * A, sizeof(float));
 
+    // Alocation
     for (int region = 0; region < R; region++) {
         average_to_region[region] = (float *)calloc(C * A, sizeof(float));
         average_to_city[region] = (float **)calloc(C, sizeof(float *));
 
         out_city[region] = (Out *)calloc(C, sizeof(Out));
-
         for (int city = 0; city < C; city++) {
             average_to_city[region][city] = (float *)calloc(A, sizeof(float));
+        }
+    }
 
+    // Real calculation
+    for (int region = 0; region < R; region++) {
+        for (int city = 0; city < C; city++) {
             for (int student = 0; student < A; student++) {
 
                 // STUDENT CALCULATION
@@ -251,6 +275,12 @@ int main() {
 
             out_city[region][city].average /= A;
 
+            // Winner Calculation
+            if (out_city[region][city].average >= avg_winner_city) {
+                winner_city = city;
+                avg_winner_city = out_city[region][city].average;
+            }
+
             out_city[region][city].median =
                 median(A, average_to_city[region][city]);
             out_city[region][city].std_deviation =
@@ -269,6 +299,12 @@ int main() {
                A * C * sizeof(float));
 
         out_region[region].average /= C;
+
+        // Winner Calculation
+        if (out_region[region].average >= avg_winner_region) {
+            winner_region = region;
+            avg_winner_region = out_region[region].average;
+        }
 
         out_region[region].median = median(A * C, average_to_region[region]);
         out_region[region].std_deviation = std_deviation(
@@ -293,10 +329,12 @@ int main() {
     out_country.max = average_to_country[A * C * R - 1];
 
     // Prints
-    print_average_student(average_to_city, R, C, A);
+    // print_average_student(average_to_city, R, C, A);
     print_out_city(out_city, R, C);
     print_out_region(out_region, R);
     print_out_country(out_country);
+    print_out_winner(winner_region, winner_city, avg_winner_region,
+                     avg_winner_city);
 
     // Frees
     free_nd(data, 4, (int[]){R, C, A, N});
