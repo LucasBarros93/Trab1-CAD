@@ -1,4 +1,4 @@
-// compile: gcc studentspar.c -o studentspar -lm -fopenmp
+// compile: gcc studentspar.c -o studentspar -fopenmp
 // run: studentspar Trab01-AvalEstudantes-ExemploArqEntrada0-v2.txt
 
 #include <math.h>
@@ -257,6 +257,7 @@ int main(int argc, char **argv) {
     // cálculo da nota média do aluno, mediana, min e man notas e desvio padrão do Brasil
     float soma = 0.0;
 
+    #pragma omp parallel for num_threads(T) reduction(+:soma) 
     for (int i = 0; i < R * C * A; i++)
         soma += average_to_country[i];
 
