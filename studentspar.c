@@ -74,8 +74,7 @@ float ****random_data_gen(int R, int C, int A, int N) {
 
                 for (int grade = 0; grade < N; grade++) {
                     data[region][city][student][grade] =
-                        (float)(rand() / (RAND_MAX + 1.0 + MIN_NOTE) *
-                                MAX_NOTE);
+                        (float)((rand() % 1001) / 10.0);
                 }
             }
         }
