@@ -155,50 +155,61 @@ void print_average_student(float ***average_student, int R, int C, int A) {
 }
 
 /*
-Print the output to a city
+Print the output to a city formatted as a table
 */
 void print_out_city(Out **out_city, int R, int C) {
+    printf("%-15s %-10s %-10s %-10s %-10s %-10s\n", "Cidades", "Min Nota", "Max Nota", "Mediana", "Média", "DsvPdr");
     for (int region = 0; region < R; region++) {
-        printf("Regiao: %d\n", region);
         for (int city = 0; city < C; city++) {
-            printf("Cidade: %d ", city);
-            printf("Min: %3.1f ", out_city[region][city].min);
-            printf("Max: %3.1f ", out_city[region][city].max);
-            printf("Media: %3.1f ", out_city[region][city].average);
-            printf("Mediana: %3.1f ", out_city[region][city].median);
-            printf("DsvPdr: %3.1f ", out_city[region][city].std_deviation);
-            printf("\n");
+            char label[50];
+            sprintf(label, "R=%d, C=%d", region, city);
+            printf("%-15s %10.1f %10.1f %10.1f %10.1f %10.1f\n", 
+                   label, out_city[region][city].min, out_city[region][city].max, 
+                   out_city[region][city].median, out_city[region][city].average, out_city[region][city].std_deviation);
         }
-        printf("\n");
-    }
-}
-
-/*
-Print the output to a region
-*/
-void print_out_region(Out *out_region, int R) {
-    for (int region = 0; region < R; region++) {
-        printf("Regiao: %d ", region);
-        printf("Min: %3.1f ", out_region[region].min);
-        printf("Max: %3.1f ", out_region[region].max);
-        printf("Media: %3.1f ", out_region[region].average);
-        printf("Mediana: %3.1f ", out_region[region].median);
-        printf("DsvPdr: %3.1f ", out_region[region].std_deviation);
-        printf("\n");
     }
     printf("\n");
 }
 
 /*
-Print the output to a country
+Print the output to a region formatted as a table
+*/
+void print_out_region(Out *out_region, int R) {
+    printf("%-15s %-10s %-10s %-10s %-10s %-10s\n", "Regiões", "Min Nota", "Max Nota", "Mediana", "Média", "DsvPdr");
+    for (int region = 0; region < R; region++) {
+        char label[50];
+        sprintf(label, "R=%d", region);
+        printf("%-15s %10.1f %10.1f %10.1f %10.1f %10.1f\n", 
+               label, out_region[region].min, out_region[region].max, 
+               out_region[region].median, out_region[region].average, out_region[region].std_deviation);
+    }
+    printf("\n");
+}
+
+/*
+Print the output to a country formatted as a table
 */
 void print_out_country(Out out_country) {
-    printf("Brasil: ");
-    printf("Min: %3.1f ", out_country.min);
-    printf("Max: %3.1f ", out_country.max);
-    printf("Media: %3.1f ", out_country.average);
-    printf("Mediana: %3.1f ", out_country.median);
-    printf("DsvPdr: %3.1f ", out_country.std_deviation);
+    printf("%-15s %-10s %-10s %-10s %-10s %-10s\n", "Brasil", "Min Nota", "Max Nota", "Mediana", "Média", "DsvPdr");
+    printf("%-15s %10.1f %10.1f %10.1f %10.1f %10.1f\n", 
+           "", out_country.min, out_country.max, 
+           out_country.median, out_country.average, out_country.std_deviation);
+    printf("\n");
+}
+
+/*
+Print the Awards (Premiação) table
+*/
+void print_awards(int best_region, float max_region_avg, int best_city_r, int best_city_c, float max_city_avg) {
+    printf("%-15s %-10s %-10s\n", "Premiação", "Reg/Cid", "Media Arit");
+    
+    char label_reg[50];
+    sprintf(label_reg, "R%d", best_region);
+    printf("%-15s %-10s %10.1f\n", "Melhor região:", label_reg, max_region_avg);
+    
+    char label_cit[50];
+    sprintf(label_cit, "R%d-C%d", best_city_r, best_city_c);
+    printf("%-15s %-10s %10.1f\n", "Melhor cidade:", label_cit, max_city_avg);
     printf("\n");
 }
 
@@ -257,9 +268,15 @@ int main(int argc, char **argv) {
     double start = omp_get_wtime();
 
     float soma_brasil = 0.0; // variable to calculate the average of the country, will be used in a  further reduction
+
+    // global variables to calculate the awards
+    int best_region = 0;
+    float max_region_avg = -1.0;
+    int best_city_r = 0, best_city_c = 0;
+    float max_city_avg = -1.0;
     
     // beginning of the parallel region
-    #pragma omp parallel num_threads(T) shared(data, average_to_city, average_to_region, average_to_country, out_city, out_region)
+    #pragma omp parallel num_threads(T) shared(data, average_to_city, average_to_region, average_to_country, out_city, out_region, soma_brasil, best_region, max_region_avg, best_city_r, best_city_c, max_city_avg)
     { 
         // STUDENT: calculation of the average of each  
         #pragma omp for collapse(3)
@@ -356,8 +373,45 @@ int main(int argc, char **argv) {
             out_country.min = average_to_country[0];
             out_country.max = average_to_country[R * C * A - 1];
         } // end of the single region
-        
 
+        
+        // calculating the awards (best region and best city)
+        float local_max_region = -1.0;
+        int local_best_region = 0;
+        float local_max_city = -1.0;
+        int local_best_city_r = 0;
+        int local_best_city_c = 0;
+
+        #pragma omp for nowait
+        for (int r = 0; r < R; r++) {
+            if (out_region[r].average > local_max_region) {
+                local_max_region = out_region[r].average;
+                local_best_region = r;
+            }
+        }
+        #pragma omp for collapse(2) nowait
+        for (int r = 0; r < R; r++) {
+            for (int c = 0; c < C; c++) {
+                if (out_city[r][c].average > local_max_city) {
+                    local_max_city = out_city[r][c].average;
+                    local_best_city_r = r;
+                    local_best_city_c = c;
+                }
+            }
+        }
+        #pragma omp critical
+        {
+            if (local_max_region > max_region_avg) {
+                max_region_avg = local_max_region;
+                best_region = local_best_region;
+            }
+
+            if (local_max_city > max_city_avg) {
+                max_city_avg = local_max_city;
+                best_city_r = local_best_city_r;
+                best_city_c = local_best_city_c;
+            }
+        }
     } // end of the parallel region
     
 
@@ -369,7 +423,7 @@ int main(int argc, char **argv) {
     print_out_region(out_region, R);
     print_out_country(out_country);
     printf("Tempo de resposta em segundos, sem considerar E/S: %.3f s\n", time);
-        
+
     // DEBUG PRINT
     // print_average_student(average_to_city, R, C, A);
 
