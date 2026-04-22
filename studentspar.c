@@ -422,6 +422,7 @@ int main(int argc, char **argv) {
     print_out_city(out_city, R, C);
     print_out_region(out_region, R);
     print_out_country(out_country);
+    print_awards(best_region, max_region_avg, best_city_r, best_city_c, max_city_avg);
     printf("Tempo de resposta em segundos, sem considerar E/S: %.3f s\n", time);
 
     // DEBUG PRINT
