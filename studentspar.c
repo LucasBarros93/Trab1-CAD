@@ -413,7 +413,7 @@ int main(int argc, char **argv) {
         }
     } // end of the parallel region
     
-
+    // time measurement and end of the calculation
     double end = omp_get_wtime();
     double time = end - start; // total time of the parallel region
 

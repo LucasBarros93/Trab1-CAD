@@ -208,7 +208,7 @@ int main(int argc, char **argv) {
     
     // dealing with the input file and opening it
     if (argc < 2) {
-        printf("Por favor execute com um nome de arquivo texto, i.e., arquivo_texto.txt\n");
+        printf("Please execute with a text file name: input.txt\n");
         exit(-1);
     }
 
@@ -217,7 +217,7 @@ int main(int argc, char **argv) {
     strcpy(inputfilename, argv[1]);
 
     if ((inputfile=fopen(inputfilename,"r")) == 0) {
-        printf("Erro ao abrir o arquivo.\n");
+        printf("Problems opening the file\n");
         exit(-1);
     }
 
@@ -374,7 +374,9 @@ int main(int argc, char **argv) {
         }
     }
 
-    double time = omp_get_wtime() - start;
+    // time measurement and end of the calculation
+    double end = omp_get_wtime();
+    double time = end - start; // total time of the parallel region
 
     // PRINTS
     print_out_city(out_city, R, C);
