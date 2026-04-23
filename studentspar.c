@@ -1,15 +1,33 @@
-// compile: gcc studentspar.c -o studentspar -lm -fopenmp
-// run: studentspar Trab01-AvalEstudantes-ExemploArqEntrada0-v2.txt
+// =====================================================
+// Trabalho 01 - Computação de Alto Desempenho (SSC0903)
+// =====================================================
+//
+// Integrantes do grupo:
+// André Vargas Villalba Codorniz
+// João Pedro Machado Medeiros
+// Leonardo Hannas de Carvalho Santos
+// Lucas Augusto Moreira Barros
+// Lucas Kimo Costa
+// Samuel Rubens Souza Oliveira
+//
+// -----------------------------------------------------
+// Compilação:
+// gcc studentspar.c -O3 -o par -lm -fopenmp
+//
+// Execução (exemplos):
+// ./par caso21_r5_c50_a2000_n10_t1.txt
+// ./par caso36_r5_c100_a5000_n12_t8.txt
+// ./par caso40_r26_c10_a15000_n12_t8.txt
+// =====================================================
 
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <string.h>
 #include <omp.h>
 
 #define MAX_NOTE 100
 #define MIN_NOTE 0
-
 
 /*
 Struct to all the outputs and their datas
@@ -42,19 +60,8 @@ float median(int size, float *arr) {
 /*
 Function to calculate the standard deviation of an array
 Needs the size and the average of the array
+Using a double accumulator helps reduce small floating-point differences.
 */
-// float std_deviation(int size, float average, float *arr) {
-//     float standardDeviation = 0;
-
-//     #pragma omp simd reduction(+:standardDeviation)
-//     for (int i = 0; i < size; i++) {
-//         float diff = arr[i] - average;
-//         standardDeviation += (diff * diff); 
-//     }
-
-//     standardDeviation = sqrt(standardDeviation / size);
-//     return standardDeviation;
-// }
 float std_deviation(int size, float average, float *arr) {
     double acc = 0.0;
 
@@ -290,7 +297,7 @@ int main(int argc, char **argv) {
     // time measurement
     double start = omp_get_wtime();
 
-    // float soma_brasil = 0.0; // variable to calculate the average of the country, will be used in a  further reduction
+    // variable to calculate the average of the country, will be used in a further reduction
     double soma_brasil = 0.0;
 
     // global variables to calculate the awards
@@ -307,15 +314,6 @@ int main(int argc, char **argv) {
         for (int region = 0; region < R; region++) {
             for (int city = 0; city < C; city++) {
                 for (int student = 0; student < A; student++) {
-    
-                    // float soma = 0.0;
-                    
-                    // // STUDENT CALCULATION
-                    // #pragma omp simd reduction(+:soma)
-                    // for (int grade = 0; grade < N; grade++)
-                    //     soma += data[region][city][student][grade];
-    
-                    // average_to_city[region][city][student] = soma / N;
 
                     double soma = 0.0;
 
@@ -335,14 +333,6 @@ int main(int argc, char **argv) {
         #pragma omp for collapse(2) 
         for (int region = 0; region < R; region++) {
             for (int city = 0; city < C; city++) {
-
-                // float soma = 0.0;
-
-                // #pragma omp simd reduction(+:soma)
-                // for (int student = 0; student < A; student++)
-                //     soma += average_to_city[region][city][student];
-
-                // out_city[region][city].average = soma / A;
 
                 double soma = 0.0;
 
@@ -373,14 +363,6 @@ int main(int argc, char **argv) {
         #pragma omp for 
         for (int region = 0; region < R; region++) {
 
-            // float soma = 0.0;
-
-            // #pragma omp simd reduction(+:soma)
-            // for (int i = 0; i < C * A; i++)
-            //     soma += average_to_region[region][i];
-
-            // out_region[region].average = soma / (C * A);
-
             double soma = 0.0;
 
             for (int i = 0; i < C * A; i++) {
@@ -405,11 +387,6 @@ int main(int argc, char **argv) {
 
 
         // BRASIL: calculation of the average grade of each student, median, min and max grades and standard deviation for the country
-        // #pragma omp for simd reduction(+:soma_brasil) 
-        // for (int i = 0; i < R * C * A; i++)
-        // {
-        //     soma_brasil += average_to_country[i];
-        // }
         #pragma omp for reduction(+:soma_brasil)
         for (int i = 0; i < R * C * A; i++) 
         {
@@ -492,8 +469,6 @@ int main(int argc, char **argv) {
     free_nd(average_to_city, 3, (int[]){R, C, A});
     free_nd(average_to_region, 2, (int[]){R, C * A});
     free_nd(average_to_country, 1, (int[]){R * C * A});
-
-    
 
     return 0;
 }
