@@ -43,17 +43,27 @@ float median(int size, float *arr) {
 Function to calculate the standard deviation of an array
 Needs the size and the average of the array
 */
-float std_deviation(int size, float average, float *arr) {
-    float standardDeviation = 0;
+// float std_deviation(int size, float average, float *arr) {
+//     float standardDeviation = 0;
 
-    #pragma omp simd reduction(+:standardDeviation)
+//     #pragma omp simd reduction(+:standardDeviation)
+//     for (int i = 0; i < size; i++) {
+//         float diff = arr[i] - average;
+//         standardDeviation += (diff * diff); 
+//     }
+
+//     standardDeviation = sqrt(standardDeviation / size);
+//     return standardDeviation;
+// }
+float std_deviation(int size, float average, float *arr) {
+    double acc = 0.0;
+
     for (int i = 0; i < size; i++) {
-        float diff = arr[i] - average;
-        standardDeviation += (diff * diff); 
+        double diff = (double)arr[i] - (double)average;
+        acc += diff * diff;
     }
 
-    standardDeviation = sqrt(standardDeviation / size);
-    return standardDeviation;
+    return (float)sqrt(acc / size);
 }
 
 /*
@@ -103,10 +113,19 @@ void free_nd(void *ptr, int dim, int *sizes) {
 }
 
 /*
-To use qsort
+Comparator for qsort.
+Do not return (fa - fb) directly, because the subtraction is a float
+and the function must return int. Small differences such as 0.3 or -0.8
+would be truncated to 0, which could make different values look equal
+to qsort and lead to incorrect ordering.
 */
 int compare(const void *a, const void *b) {
-    return (*(float *)a - *(float *)b);
+    // return (*(float *)a - *(float *)b);
+    float fa = *(const float *)a;
+    float fb = *(const float *)b;
+    if (fa < fb) return -1;
+    if (fa > fb) return 1;
+    return 0;
 }
 
 
@@ -231,7 +250,12 @@ int main(int argc, char **argv) {
 
     // scaning variables
     int R, C, A, N, T, seed;
-    fscanf(inputfile, "%d %d %d %d %d %d", &R, &C, &A, &N, &T, &seed);
+    // fscanf(inputfile, "%d %d %d %d %d %d", &R, &C, &A, &N, &T, &seed);
+    if (fscanf(inputfile, "%d %d %d %d %d %d", &R, &C, &A, &N, &T, &seed) != 6) {
+        printf("Error reading the input file\n");
+        fclose(inputfile);
+        exit(-1);
+    }
 
     // closing the file
     fclose(inputfile);
@@ -266,7 +290,8 @@ int main(int argc, char **argv) {
     // time measurement
     double start = omp_get_wtime();
 
-    float soma_brasil = 0.0; // variable to calculate the average of the country, will be used in a  further reduction
+    // float soma_brasil = 0.0; // variable to calculate the average of the country, will be used in a  further reduction
+    double soma_brasil = 0.0;
 
     // global variables to calculate the awards
     int best_region = 0;
@@ -283,14 +308,24 @@ int main(int argc, char **argv) {
             for (int city = 0; city < C; city++) {
                 for (int student = 0; student < A; student++) {
     
-                    float soma = 0.0;
+                    // float soma = 0.0;
                     
-                    // STUDENT CALCULATION
-                    #pragma omp simd reduction(+:soma)
-                    for (int grade = 0; grade < N; grade++)
-                        soma += data[region][city][student][grade];
+                    // // STUDENT CALCULATION
+                    // #pragma omp simd reduction(+:soma)
+                    // for (int grade = 0; grade < N; grade++)
+                    //     soma += data[region][city][student][grade];
     
-                    average_to_city[region][city][student] = soma / N;
+                    // average_to_city[region][city][student] = soma / N;
+
+                    double soma = 0.0;
+
+                    for (int grade = 0; grade < N; grade++) 
+                    {
+                        soma += data[region][city][student][grade];
+                    }
+
+                    average_to_city[region][city][student] = (float)(soma / N);
+
                 }
             }
         }
@@ -301,13 +336,22 @@ int main(int argc, char **argv) {
         for (int region = 0; region < R; region++) {
             for (int city = 0; city < C; city++) {
 
-                float soma = 0.0;
+                // float soma = 0.0;
 
-                #pragma omp simd reduction(+:soma)
-                for (int student = 0; student < A; student++)
+                // #pragma omp simd reduction(+:soma)
+                // for (int student = 0; student < A; student++)
+                //     soma += average_to_city[region][city][student];
+
+                // out_city[region][city].average = soma / A;
+
+                double soma = 0.0;
+
+                for (int student = 0; student < A; student++) 
+                {
                     soma += average_to_city[region][city][student];
+                }
 
-                out_city[region][city].average = soma / A;
+                out_city[region][city].average = (float)(soma / A);
 
                 qsort(average_to_city[region][city], A, sizeof(float), compare);
 
@@ -329,13 +373,21 @@ int main(int argc, char **argv) {
         #pragma omp for 
         for (int region = 0; region < R; region++) {
 
-            float soma = 0.0;
+            // float soma = 0.0;
 
-            #pragma omp simd reduction(+:soma)
-            for (int i = 0; i < C * A; i++)
+            // #pragma omp simd reduction(+:soma)
+            // for (int i = 0; i < C * A; i++)
+            //     soma += average_to_region[region][i];
+
+            // out_region[region].average = soma / (C * A);
+
+            double soma = 0.0;
+
+            for (int i = 0; i < C * A; i++) {
                 soma += average_to_region[region][i];
+            }
 
-            out_region[region].average = soma / (C * A);
+            out_region[region].average = (float)(soma / (C * A));
 
             qsort(average_to_region[region], C * A, sizeof(float), compare);
 
@@ -353,15 +405,21 @@ int main(int argc, char **argv) {
 
 
         // BRASIL: calculation of the average grade of each student, median, min and max grades and standard deviation for the country
-        #pragma omp for simd reduction(+:soma_brasil) 
-        for (int i = 0; i < R * C * A; i++)
+        // #pragma omp for simd reduction(+:soma_brasil) 
+        // for (int i = 0; i < R * C * A; i++)
+        // {
+        //     soma_brasil += average_to_country[i];
+        // }
+        #pragma omp for reduction(+:soma_brasil)
+        for (int i = 0; i < R * C * A; i++) 
         {
             soma_brasil += average_to_country[i];
         }
 
         #pragma omp single
         {
-            out_country.average = soma_brasil / (R * C * A);
+            // out_country.average = soma_brasil / (R * C * A);
+            out_country.average = (float)(soma_brasil / (R * C * A));
 
             qsort(average_to_country, R * C * A, sizeof(float), compare);
 

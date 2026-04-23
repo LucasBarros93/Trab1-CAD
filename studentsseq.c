@@ -35,18 +35,34 @@ float median(int size, float *arr) {
     }
 }
 
+// /*
+// Function to calculate the standard deviation of an array
+// Needs the size and the average of the array
+// */
+// float std_deviation(int size, float average, float *arr) {
+//     float standardDeviation = 0;
+//     for (int i = 0; i < size; i++) {
+//         standardDeviation += pow(arr[i] - average, 2);
+//     }
+
+//     standardDeviation = sqrt(standardDeviation / size);
+//     return standardDeviation;
+// }
+
 /*
 Function to calculate the standard deviation of an array
 Needs the size and the average of the array
+Using a double accumulator helps reduce small floating-point differences.
 */
 float std_deviation(int size, float average, float *arr) {
-    float standardDeviation = 0;
+    double acc = 0.0;
+
     for (int i = 0; i < size; i++) {
-        standardDeviation += pow(arr[i] - average, 2);
+        double diff = (double)arr[i] - (double)average;
+        acc += diff * diff;
     }
 
-    standardDeviation = sqrt(standardDeviation / size);
-    return standardDeviation;
+    return (float)sqrt(acc / size);
 }
 
 /*
@@ -96,10 +112,19 @@ void free_nd(void *ptr, int dim, int *sizes) {
 }
 
 /*
-To use qsort
+Comparator for qsort.
+Do not return (fa - fb) directly, because the subtraction is a float
+and the function must return int. Small differences such as 0.3 or -0.8
+would be truncated to 0, which could make different values look equal
+to qsort and lead to incorrect ordering.
 */
 int compare(const void *a, const void *b) {
-    return (*(float *)a - *(float *)b);
+    // return (*(float *)a - *(float *)b);
+    float fa = *(const float *)a;
+    float fb = *(const float *)b;
+    if (fa < fb) return -1;
+    if (fa > fb) return 1;
+    return 0;
 }
 
 // === OUTPUT PRINTS ===
@@ -223,7 +248,12 @@ int main(int argc, char **argv) {
 
     // scaning variables
     int R, C, A, N, T, seed;
-    fscanf(inputfile, "%d %d %d %d %d %d", &R, &C, &A, &N, &T, &seed);
+    // fscanf(inputfile, "%d %d %d %d %d %d", &R, &C, &A, &N, &T, &seed);
+    if (fscanf(inputfile, "%d %d %d %d %d %d", &R, &C, &A, &N, &T, &seed) != 6) {
+        printf("Error reading the input file\n");
+        fclose(inputfile);
+        exit(-1);
+    }
 
     // closing the file
     fclose(inputfile);
@@ -264,22 +294,26 @@ int main(int argc, char **argv) {
 
         for (int city = 0; city < C; city++) {
 
-            float soma_city = 0.0;
+            // float soma_city = 0.0;
+            double soma_city = 0.0;
 
             for (int student = 0; student < A; student++) {
 
-                float soma = 0.0;
+                // float soma = 0.0;
+                double soma = 0.0;
 
                 // STUDENT CALCULATION
                 for (int grade = 0; grade < N; grade++) {
                     soma += data[region][city][student][grade];
                 }
 
-                average_to_city[region][city][student] = soma / N;
+                // average_to_city[region][city][student] = soma / N;
+                average_to_city[region][city][student] = (float)(soma / N);
                 soma_city += average_to_city[region][city][student];
             }
 
-            out_city[region][city].average = soma_city / A;
+            // out_city[region][city].average = soma_city / A;
+            out_city[region][city].average = (float)(soma_city / A);
 
             // CITY CALCULATION
             qsort(average_to_city[region][city], A, sizeof(float), compare);
@@ -299,13 +333,15 @@ int main(int argc, char **argv) {
             out_city[region][city].max = average_to_city[region][city][A - 1];
         }
 
-        float soma_region = 0.0;
+        // float soma_region = 0.0;
+        double soma_region = 0.0;
 
         for (int i = 0; i < C * A; i++)
             soma_region += average_to_region[region][i];
 
         // REGION CALCULATION
-        out_region[region].average = soma_region / (C * A);
+        // out_region[region].average = soma_region / (C * A);
+        out_region[region].average = (float)(soma_region / (C * A));
 
         qsort(average_to_region[region], C * A, sizeof(float), compare);
 
@@ -328,12 +364,14 @@ int main(int argc, char **argv) {
         out_country.average += out_region[region].average;
     }
 
-    float soma_country = 0.0;
+    // float soma_country = 0.0;
+    double soma_country = 0.0;
 
     for (int i = 0; i < R * C * A; i++)
         soma_country += average_to_country[i];
 
-    out_country.average = soma_country / (R * C * A);
+    // out_country.average = soma_country / (R * C * A);
+    out_country.average = (float)(soma_country / (R * C * A));
 
     qsort(average_to_country, R * C * A, sizeof(float), compare);
 
