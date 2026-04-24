@@ -27,9 +27,9 @@
 // gcc studentspar.c -O3 -o par -lm -fopenmp
 //
 // Execução (exemplos):
-// ./par caso21_r5_c50_a2000_n10_t1.txt
-// ./par caso36_r5_c100_a5000_n12_t8.txt
-// ./par caso40_r26_c10_a15000_n12_t8.txt
+// ./par Trab01-AvalEstudantes-ExemploArqEntrada0-v2.txt
+// ./par Trab01-AvalEstudantes-ExemploArqEntrada1-v2.txt
+// ./par Trab01-AvalEstudantes-ExemploArqEntrada2-v2.txt
 // =====================================================
 
 #include <stdio.h>

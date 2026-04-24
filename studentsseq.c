@@ -28,9 +28,9 @@
 // gcc studentsseq.c -O3 -o seq -lm -fopenmp
 //
 // Execução (exemplos):
-// ./seq caso21_r5_c50_a2000_n10_t1.txt
-// ./seq caso36_r5_c100_a5000_n12_t8.txt
-// ./seq caso40_r26_c10_a15000_n12_t8.txt
+// ./seq Trab01-AvalEstudantes-ExemploArqEntrada0-v2.txt
+// ./seq Trab01-AvalEstudantes-ExemploArqEntrada1-v2.txt
+// ./seq Trab01-AvalEstudantes-ExemploArqEntrada2-v2.txt
 // =====================================================
 
 #include <stdio.h>
