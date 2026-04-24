@@ -11,6 +11,19 @@
 // Samuel Rubens Souza Oliveira
 //
 // -----------------------------------------------------
+// Descrição:
+// Implementação sequencial em C para processar notas de
+// alunos organizados por região, cidade, aluno e nota.
+//
+// Estratégia geral:
+// - Gerar os dados antes da medição de tempo.
+// - Medir apenas a etapa computacional.
+// - Calcular estatísticas em três níveis:
+//   cidade, região e Brasil.
+// - Usar acumuladores em double para reduzir diferenças
+//   numéricas em somas longas.
+//
+// -----------------------------------------------------
 // Compilação:
 // gcc studentsseq.c -O3 -o seq -lm -fopenmp
 //
@@ -30,8 +43,15 @@
 #define MIN_NOTE 0
 
 /*
-Struct to all the outputs and their datas
-They are City, Region, Country
+Estrutura usada para armazenar as estatísticas calculadas
+em cada nível de agregação: cidade, região e Brasil.
+
+Campos:
+- average: média aritmética das médias dos alunos
+- median: mediana das médias dos alunos
+- std_deviation: desvio padrão populacional das médias dos alunos
+- min: menor média individual de aluno
+- max: maior média individual de aluno
 */
 typedef struct {
     float average;
@@ -43,11 +63,11 @@ typedef struct {
 
 } Out;
 
-// === AUXILIAR FUNCTIONS ===
+// === FUNÇÕES AUXILIARES ===
 
 /*
-Function to calculate the median of an array
-Needs the size of the array
+Calcula a mediana de um vetor já ordenado.
+O vetor deve estar previamente ordenado em ordem crescente.
 */
 float median(int size, float *arr) {
     if (size % 2 == 0) {
@@ -58,9 +78,11 @@ float median(int size, float *arr) {
 }
 
 /*
-Function to calculate the standard deviation of an array
-Needs the size and the average of the array
-Using a double accumulator helps reduce small floating-point differences.
+Calcula o desvio padrão populacional de um vetor.
+
+O acumulador é double para reduzir erros de ponto flutuante
+em somas longas. A função retorna float para manter compatibilidade
+com a estrutura Out e com os demais arrays do programa.
 */
 float std_deviation(int size, float average, float *arr) {
     double acc = 0.0;
@@ -74,7 +96,13 @@ float std_deviation(int size, float average, float *arr) {
 }
 
 /*
-To generate the data to use
+Gera pseudoaleatoriamente as notas individuais dos alunos.
+
+Estrutura alocada:
+data[região][cidade][aluno][nota]
+
+As notas são geradas entre 0.0 e 100.0, com uma casa decimal,
+a partir da seed definida no arquivo de entrada.
 */
 float ****random_data_gen(int R, int C, int A, int N) {
 
@@ -101,7 +129,12 @@ float ****random_data_gen(int R, int C, int A, int N) {
 }
 
 /*
-Free n dimentional array
+Libera recursivamente arrays alocados dinamicamente em múltiplas dimensões.
+
+Parâmetros:
+- ptr: ponteiro para o array
+- dim: número de dimensões restantes
+- sizes: vetor com os tamanhos de cada dimensão
 */
 void free_nd(void *ptr, int dim, int *sizes) {
     if (ptr == NULL)
@@ -120,11 +153,12 @@ void free_nd(void *ptr, int dim, int *sizes) {
 }
 
 /*
-Comparator for qsort.
-Do not return (fa - fb) directly, because the subtraction is a float
-and the function must return int. Small differences such as 0.3 or -0.8
-would be truncated to 0, which could make different values look equal
-to qsort and lead to incorrect ordering.
+Comparador usado pelo qsort para ordenar valores float.
+
+Não se deve retornar diretamente (fa - fb), pois a subtração é float
+e a função deve retornar int. Diferenças pequenas, como 0.3 ou -0.8,
+poderiam ser truncadas para 0, fazendo o qsort tratar valores distintos
+como se fossem iguais.
 */
 int compare(const void *a, const void *b) {
     float fa = *(const float *)a;
@@ -134,11 +168,12 @@ int compare(const void *a, const void *b) {
     return 0;
 }
 
-// === OUTPUT PRINTS ===
+// === FUNÇÕES DE IMPRESSÃO ===
 
 /*
-Print the initial data
-Just debug
+Imprime todos os dados gerados.
+Função usada apenas para depuração.
+Não é usada na medição de desempenho.
 */
 void print_data(float ****data, int R, int C, int A, int N) {
     for (int region = 0; region < R; region++) {
@@ -159,8 +194,8 @@ void print_data(float ****data, int R, int C, int A, int N) {
 }
 
 /*
-Print the student data
-Just debug
+Imprime a média calculada para cada aluno.
+Função usada apenas para depuração.
 */
 void print_average_student(float ***average_student, int R, int C, int A) {
     for (int region = 0; region < R; region++) {
@@ -178,7 +213,8 @@ void print_average_student(float ***average_student, int R, int C, int A) {
 }
 
 /*
-Print the output to a city formatted as a table
+Imprime a tabela de resultados por cidade.
+Cada linha corresponde a uma cidade dentro de uma região.
 */
 void print_out_city(Out **out_city, int R, int C) {
     printf("%-15s %-10s %-10s %-10s %-10s %-10s\n", "Cidades", "Min Nota", "Max Nota", "Mediana", "Média", "DsvPdr");
@@ -195,7 +231,8 @@ void print_out_city(Out **out_city, int R, int C) {
 }
 
 /*
-Print the output to a region formatted as a table
+Imprime a tabela de resultados por região.
+Cada linha corresponde a uma região.
 */
 void print_out_region(Out *out_region, int R) {
     printf("%-15s %-10s %-10s %-10s %-10s %-10s\n", "Regiões", "Min Nota", "Max Nota", "Mediana", "Média", "DsvPdr");
@@ -210,7 +247,7 @@ void print_out_region(Out *out_region, int R) {
 }
 
 /*
-Print the output to a country formatted as a table
+Imprime a tabela de resultados agregados para o Brasil.
 */
 void print_out_country(Out out_country) {
     printf("%-15s %-10s %-10s %-10s %-10s %-10s\n", "Brasil", "Min Nota", "Max Nota", "Mediana", "Média", "DsvPdr");
@@ -221,7 +258,9 @@ void print_out_country(Out out_country) {
 }
 
 /*
-Print the Awards (Premiação) table
+Imprime a tabela de premiação:
+- região com maior média aritmética
+- cidade com maior média aritmética
 */
 void print_awards(int best_region, float max_region_avg, int best_city_r, int best_city_c, float max_city_avg) {
     printf("%-15s %-10s %-10s\n", "Premiação", "Reg/Cid", "Media Arit");
@@ -238,7 +277,7 @@ void print_awards(int best_region, float max_region_avg, int best_city_r, int be
 
 int main(int argc, char **argv) {
     
-    // dealing with the input file and opening it
+    // Validação do argumento de entrada: o programa espera um arquivo .txt
     if (argc < 2) {
         printf("Please execute with a text file name: input.txt\n");
         exit(-1);
@@ -248,12 +287,21 @@ int main(int argc, char **argv) {
     char *inputfilename = (char *)malloc(256*sizeof(char));
     strcpy(inputfilename, argv[1]);
 
+    // Abertura do arquivo de entrada
     if ((inputfile=fopen(inputfilename,"r")) == 0) {
         printf("Problems opening the file\n");
         exit(-1);
     }
 
-    // scaning variables
+    /*
+    Leitura dos parâmetros do problema:
+    R    = número de regiões
+    C    = número de cidades por região
+    A    = número de alunos por cidade
+    N    = número de notas por aluno
+    T    = número de threads informado no arquivo
+    seed = semente pseudoaleatória
+    */
     int R, C, A, N, T, seed;
     if (fscanf(inputfile, "%d %d %d %d %d %d", &R, &C, &A, &N, &T, &seed) != 6) {
         printf("Error reading the input file\n");
@@ -261,27 +309,40 @@ int main(int argc, char **argv) {
         exit(-1);
     }
 
-    // closing the file
+    // Fechamento do arquivo após a leitura dos parâmetros
     fclose(inputfile);
 
-    // setting the seed for the random generator
+    // Inicialização do gerador pseudoaleatório
     srand(seed);
 
-    // generating the data to use (student grades)
+    /*
+    Geração dos dados de entrada.
+    Esta etapa não faz parte do tempo medido, conforme solicitado no enunciado.
+    */
     float ****data = random_data_gen(R, C, A, N);
 
-    // The outputs arrays
+    /*
+    Estruturas que armazenam as estatísticas finais:
+    - out_city: estatísticas de cada cidade
+    - out_region: estatísticas de cada região
+    - out_country: estatísticas agregadas do Brasil
+    */
     Out **out_city = (Out **)calloc(R, sizeof(Out *));
     Out *out_region = (Out *)calloc(R, sizeof(Out));
     Out out_country;
     out_country.average = 0;
 
-    // The auxiliar arrays
+    /*
+    Arrays auxiliares:
+    - average_to_city: médias individuais dos alunos por cidade
+    - average_to_region: médias dos alunos agregadas por região
+    - average_to_country: médias dos alunos agregadas para o Brasil
+    */
     float ***average_to_city = (float ***)calloc(R, sizeof(float **));
     float **average_to_region = (float **)calloc(R, sizeof(float *));
     float *average_to_country = (float *)calloc(R * C * A, sizeof(float));
 
-    // more allocation
+    // Alocação das estruturas auxiliares por região e cidade
     for (int region = 0; region < R; region++) {
         average_to_region[region] = calloc(C * A, sizeof(float));
         average_to_city[region] = calloc(C, sizeof(float *));
@@ -292,20 +353,34 @@ int main(int argc, char **argv) {
         }
     }
 
-    // time measurement and beginning of the calculations
+    /*
+    Início da medição de tempo.
+    A medição considera apenas a etapa computacional principal.
+    */
     double start = omp_get_wtime();
 
+    /*
+    Processamento sequencial.
+    A ordem de cálculo segue a hierarquia:
+    aluno -> cidade -> região -> Brasil.
+    */
     for (int region = 0; region < R; region++) {
 
         for (int city = 0; city < C; city++) {
 
+            /*
+            Soma das médias individuais dos alunos da cidade.
+            O acumulador em double reduz erros numéricos.
+            */
             double soma_city = 0.0;
 
             for (int student = 0; student < A; student++) {
-
+                
+                /*
+                Cálculo da média individual do aluno a partir de suas N notas.
+                */
                 double soma = 0.0;
 
-                // STUDENT CALCULATION
                 for (int grade = 0; grade < N; grade++) {
                     soma += data[region][city][student][grade];
                 }
@@ -314,9 +389,12 @@ int main(int argc, char **argv) {
                 soma_city += average_to_city[region][city][student];
             }
 
+            /*
+            NÍVEL CIDADE:
+            Calcula estatísticas sobre as médias dos alunos da cidade.
+            */
             out_city[region][city].average = (float)(soma_city / A);
 
-            // CITY CALCULATION
             qsort(average_to_city[region][city], A, sizeof(float), compare);
             memcpy(average_to_region[region] + city * A,
                    average_to_city[region][city],
@@ -334,12 +412,15 @@ int main(int argc, char **argv) {
             out_city[region][city].max = average_to_city[region][city][A - 1];
         }
 
+        /*
+        NÍVEL REGIÃO:
+        Agrega as médias dos alunos de todas as cidades da região.
+        */
         double soma_region = 0.0;
 
         for (int i = 0; i < C * A; i++)
             soma_region += average_to_region[region][i];
 
-        // REGION CALCULATION
         out_region[region].average = (float)(soma_region / (C * A));
 
         qsort(average_to_region[region], C * A, sizeof(float), compare);
@@ -359,10 +440,18 @@ int main(int argc, char **argv) {
         out_region[region].min = average_to_region[region][0];
         out_region[region].max = average_to_region[region][C * A - 1];
         
-        // COUNTRY CALCULATION
+        /*
+        Acúmulo auxiliar mantido por compatibilidade com a estrutura original.
+        O valor final de out_country.average é recalculado corretamente abaixo
+        usando soma_country.
+        */
         out_country.average += out_region[region].average;
     }
 
+    /*
+    NÍVEL BRASIL:
+    Agrega as médias individuais de todos os alunos do país.
+    */
     double soma_country = 0.0;
 
     for (int i = 0; i < R * C * A; i++)
@@ -383,11 +472,13 @@ int main(int argc, char **argv) {
     out_country.min = average_to_country[0];
     out_country.max = average_to_country[R * C * A - 1];
 
-    // --- LÓGICA DE PREMIAÇÃO SEQUENCIAL (DENTRO DO TEMPO) ---
+    /*
+    PREMIAÇÃO:
+    Busca sequencial pela região com maior média aritmética.
+    */
     int best_region = 0;
     float max_region_avg = -1.0;
     
-    // Encontrar a região com a maior média
     for (int r = 0; r < R; r++) {
         if (out_region[r].average > max_region_avg) {
             max_region_avg = out_region[r].average;
@@ -395,10 +486,12 @@ int main(int argc, char **argv) {
         }
     }
 
+    /*
+    Busca sequencial pela cidade com maior média aritmética.
+    */
     int best_city_r = 0, best_city_c = 0;
     float max_city_avg = -1.0;
 
-    // Encontrar a cidade com a maior média
     for (int r = 0; r < R; r++) {
         for (int c = 0; c < C; c++) {
             if (out_city[r][c].average > max_city_avg) {
@@ -409,11 +502,14 @@ int main(int argc, char **argv) {
         }
     }
 
-    // time measurement and end of the calculation
+    /*
+    Fim da medição de tempo.
+    O tempo calculado corresponde apenas à etapa computacional principal.
+    */
     double end = omp_get_wtime();
-    double time = end - start; // total time of the parallel region
+    double time = end - start;
 
-    // PRINTS
+    // Impressão dos resultados finais
     print_out_city(out_city, R, C);
     print_out_region(out_region, R);
     print_out_country(out_country);
@@ -423,7 +519,7 @@ int main(int argc, char **argv) {
     // DEBUG PRINT
     // print_average_student(average_to_city, R, C, A);
 
-    // Frees
+    // Liberação de memória alocada dinamicamente
     free_nd(data, 4, (int[]){R, C, A, N});
     free_nd(out_city, 2, (int[]){R, C});
     free_nd(out_region, 1, (int[]){R});

@@ -11,6 +11,18 @@
 // Samuel Rubens Souza Oliveira
 //
 // -----------------------------------------------------
+// Descrição:
+// Implementação paralela em C/OpenMP para processar notas
+// de alunos organizados por região, cidade, aluno e nota.
+//
+// Estratégia geral:
+// - Gerar os dados antes da medição de tempo.
+// - Medir apenas a etapa computacional.
+// - Explorar paralelismo nos níveis de aluno, cidade e região.
+// - Usar reduction, single e critical para tratar agregações globais.
+// - Usar acumuladores em double para reduzir diferenças numéricas.
+//
+// -----------------------------------------------------
 // Compilação:
 // gcc studentspar.c -O3 -o par -lm -fopenmp
 //
@@ -30,8 +42,15 @@
 #define MIN_NOTE 0
 
 /*
-Struct to all the outputs and their datas
-They are City, Region, Country
+Estrutura usada para armazenar as estatísticas calculadas
+em cada nível de agregação: cidade, região e Brasil.
+
+Campos:
+- average: média aritmética das médias dos alunos
+- median: mediana das médias dos alunos
+- std_deviation: desvio padrão populacional das médias dos alunos
+- min: menor média individual de aluno
+- max: maior média individual de aluno
 */
 typedef struct {
     float average;
@@ -43,11 +62,11 @@ typedef struct {
 
 } Out;
 
-// === AUXILIAR FUNCTIONS ===
+// === FUNÇÕES AUXILIARES ===
 
 /*
-Function to calculate the median of an array
-Needs the size of the array
+Calcula a mediana de um vetor já ordenado.
+O vetor deve estar previamente ordenado em ordem crescente.
 */
 float median(int size, float *arr) {
     if (size % 2 == 0) {
@@ -58,9 +77,11 @@ float median(int size, float *arr) {
 }
 
 /*
-Function to calculate the standard deviation of an array
-Needs the size and the average of the array
-Using a double accumulator helps reduce small floating-point differences.
+Calcula o desvio padrão populacional de um vetor.
+
+O acumulador é double para reduzir erros de ponto flutuante
+em somas longas. A função retorna float para manter compatibilidade
+com a estrutura Out e com os demais arrays do programa.
 */
 float std_deviation(int size, float average, float *arr) {
     double acc = 0.0;
@@ -74,7 +95,13 @@ float std_deviation(int size, float average, float *arr) {
 }
 
 /*
-To generate the data to use
+Gera pseudoaleatoriamente as notas individuais dos alunos.
+
+Estrutura alocada:
+data[região][cidade][aluno][nota]
+
+As notas são geradas entre 0.0 e 100.0, com uma casa decimal,
+a partir da seed definida no arquivo de entrada.
 */
 float ****random_data_gen(int R, int C, int A, int N) {
 
@@ -101,7 +128,12 @@ float ****random_data_gen(int R, int C, int A, int N) {
 }
 
 /*
-Free n dimentional array
+Libera recursivamente arrays alocados dinamicamente em múltiplas dimensões.
+
+Parâmetros:
+- ptr: ponteiro para o array
+- dim: número de dimensões restantes
+- sizes: vetor com os tamanhos de cada dimensão
 */
 void free_nd(void *ptr, int dim, int *sizes) {
     if (ptr == NULL)
@@ -120,14 +152,14 @@ void free_nd(void *ptr, int dim, int *sizes) {
 }
 
 /*
-Comparator for qsort.
-Do not return (fa - fb) directly, because the subtraction is a float
-and the function must return int. Small differences such as 0.3 or -0.8
-would be truncated to 0, which could make different values look equal
-to qsort and lead to incorrect ordering.
+Comparador usado pelo qsort para ordenar valores float.
+
+Não se deve retornar diretamente (fa - fb), pois a subtração é float
+e a função deve retornar int. Diferenças pequenas, como 0.3 ou -0.8,
+poderiam ser truncadas para 0, fazendo o qsort tratar valores distintos
+como se fossem iguais.
 */
 int compare(const void *a, const void *b) {
-    // return (*(float *)a - *(float *)b);
     float fa = *(const float *)a;
     float fb = *(const float *)b;
     if (fa < fb) return -1;
@@ -136,11 +168,12 @@ int compare(const void *a, const void *b) {
 }
 
 
-// === OUTPUT PRINTS ===
+// === FUNÇÕES DE IMPRESSÃO ===
 
 /*
-Print the initial data
-Just debug
+Imprime todos os dados gerados.
+Função usada apenas para depuração.
+Não é usada na medição de desempenho.
 */
 void print_data(float ****data, int R, int C, int A, int N) {
     for (int region = 0; region < R; region++) {
@@ -161,8 +194,8 @@ void print_data(float ****data, int R, int C, int A, int N) {
 }
 
 /*
-Print the student data
-Just debug
+Imprime a média calculada para cada aluno.
+Função usada apenas para depuração.
 */
 void print_average_student(float ***average_student, int R, int C, int A) {
     for (int region = 0; region < R; region++) {
@@ -180,7 +213,8 @@ void print_average_student(float ***average_student, int R, int C, int A) {
 }
 
 /*
-Print the output to a city formatted as a table
+Imprime a tabela de resultados por cidade.
+Cada linha corresponde a uma cidade dentro de uma região.
 */
 void print_out_city(Out **out_city, int R, int C) {
     printf("%-15s %-10s %-10s %-10s %-10s %-10s\n", "Cidades", "Min Nota", "Max Nota", "Mediana", "Média", "DsvPdr");
@@ -197,7 +231,8 @@ void print_out_city(Out **out_city, int R, int C) {
 }
 
 /*
-Print the output to a region formatted as a table
+Imprime a tabela de resultados por região.
+Cada linha corresponde a uma região.
 */
 void print_out_region(Out *out_region, int R) {
     printf("%-15s %-10s %-10s %-10s %-10s %-10s\n", "Regiões", "Min Nota", "Max Nota", "Mediana", "Média", "DsvPdr");
@@ -212,7 +247,7 @@ void print_out_region(Out *out_region, int R) {
 }
 
 /*
-Print the output to a country formatted as a table
+Imprime a tabela de resultados agregados para o Brasil.
 */
 void print_out_country(Out out_country) {
     printf("%-15s %-10s %-10s %-10s %-10s %-10s\n", "Brasil", "Min Nota", "Max Nota", "Mediana", "Média", "DsvPdr");
@@ -223,7 +258,9 @@ void print_out_country(Out out_country) {
 }
 
 /*
-Print the Awards (Premiação) table
+Imprime a tabela de premiação:
+- região com maior média aritmética
+- cidade com maior média aritmética
 */
 void print_awards(int best_region, float max_region_avg, int best_city_r, int best_city_c, float max_city_avg) {
     printf("%-15s %-10s %-10s\n", "Premiação", "Reg/Cid", "Media Arit");
@@ -240,7 +277,7 @@ void print_awards(int best_region, float max_region_avg, int best_city_r, int be
 
 int main(int argc, char **argv) {
 
-    // dealing with the input file and opening it
+    // Validação do argumento de entrada: o programa espera um arquivo .txt
     if (argc < 2) {
         printf("Please execute with a text file name: input.txt\n");
         exit(-1);
@@ -250,40 +287,61 @@ int main(int argc, char **argv) {
     char *inputfilename = (char *)malloc(256*sizeof(char));
     strcpy(inputfilename, argv[1]);
 
+    // Abertura do arquivo de entrada
     if ((inputfile=fopen(inputfilename,"r")) == 0) {
         printf("Problems opening the file\n");
         exit(-1);
     }
 
-    // scaning variables
+    /*
+    Leitura dos parâmetros do problema:
+    R    = número de regiões
+    C    = número de cidades por região
+    A    = número de alunos por cidade
+    N    = número de notas por aluno
+    T    = número de threads OpenMP
+    seed = semente pseudoaleatória
+    */
     int R, C, A, N, T, seed;
-    // fscanf(inputfile, "%d %d %d %d %d %d", &R, &C, &A, &N, &T, &seed);
     if (fscanf(inputfile, "%d %d %d %d %d %d", &R, &C, &A, &N, &T, &seed) != 6) {
         printf("Error reading the input file\n");
         fclose(inputfile);
         exit(-1);
     }
 
-    // closing the file
+    // Fechamento do arquivo após a leitura dos parâmetros
     fclose(inputfile);
 
-    // setting the seed for the random generator
+    // Inicialização do gerador pseudoaleatório
     srand(seed);
 
-    // generating the data to use (student grades)
+    /*
+    Geração dos dados de entrada.
+    Esta etapa não faz parte do tempo medido, conforme solicitado no enunciado.
+    */
     float ****data = random_data_gen(R, C, A, N);
 
-    // The outputs arrays
+    /*
+    Estruturas que armazenam as estatísticas finais:
+    - out_city: estatísticas de cada cidade
+    - out_region: estatísticas de cada região
+    - out_country: estatísticas agregadas do Brasil
+    */
     Out **out_city = (Out **)calloc(R, sizeof(Out *));
     Out *out_region = (Out *)calloc(R, sizeof(Out));
     Out out_country;
 
-    // The auxiliar arrays
+    /*
+    Arrays auxiliares:
+    - average_to_city: médias individuais dos alunos por cidade
+    - average_to_region: médias dos alunos agregadas por região
+    - average_to_country: médias dos alunos agregadas para o Brasil
+    */
     float ***average_to_city = (float ***)calloc(R, sizeof(float **));
     float **average_to_region = (float **)calloc(R, sizeof(float *));
     float *average_to_country = (float *)calloc(R * C * A, sizeof(float));
 
-    // allocating the auxiliar arrays
+    // Alocação das estruturas auxiliares por região e cidade
     for (int region = 0; region < R; region++) {
         out_city[region] = (Out *)calloc(C, sizeof(Out));
         average_to_city[region] = (float **)calloc(C, sizeof(float *));
@@ -294,22 +352,47 @@ int main(int argc, char **argv) {
         }
     }
 
-    // time measurement
+    /*
+    Início da medição de tempo.
+    A medição considera apenas a etapa computacional principal.
+    */
     double start = omp_get_wtime();
 
-    // variable to calculate the average of the country, will be used in a further reduction
+    /*
+    Soma global usada no cálculo da média nacional.
+    Será atualizada com reduction dentro da região paralela.
+    */
     double soma_brasil = 0.0;
 
-    // global variables to calculate the awards
+    /*
+    Variáveis globais da premiação.
+    Serão atualizadas ao final com proteção por critical.
+    */
     int best_region = 0;
     float max_region_avg = -1.0;
     int best_city_r = 0, best_city_c = 0;
     float max_city_avg = -1.0;
     
-    // beginning of the parallel region
+    /*
+    Região paralela principal.
+
+    Estratégia:
+    - As estruturas principais são compartilhadas entre as threads.
+    - Cada loop paralelizado distribui partes independentes do trabalho.
+    - Escritas em posições distintas evitam condições de corrida.
+    - Agregações globais usam reduction, single ou critical.
+    */
     #pragma omp parallel num_threads(T) shared(data, average_to_city, average_to_region, average_to_country, out_city, out_region, soma_brasil, best_region, max_region_avg, best_city_r, best_city_c, max_city_avg)
     { 
-        // STUDENT: calculation of the average of each  
+        /*
+        NÍVEL ALUNO:
+        Calcula a média individual de cada aluno.
+
+        Paralelização:
+        - collapse(3) combina os loops de região, cidade e aluno.
+        - Cada iteração escreve em uma posição única de average_to_city.
+        - Não há dependência entre alunos.
+        */
         #pragma omp for collapse(3)
         for (int region = 0; region < R; region++) {
             for (int city = 0; city < C; city++) {
@@ -327,9 +410,20 @@ int main(int argc, char **argv) {
                 }
             }
         }
-     
         
-        // CITY: calculation of the average grade of each student, median, min and max grades and standard deviation for each CITY
+        /*
+        NÍVEL CIDADE:
+        Para cada cidade, calcula:
+        - média das médias dos alunos
+        - mediana
+        - desvio padrão
+        - menor média
+        - maior média
+
+        Paralelização:
+        - collapse(2) combina região e cidade.
+        - Cada cidade é processada independentemente.
+        */
         #pragma omp for collapse(2) 
         for (int region = 0; region < R; region++) {
             for (int city = 0; city < C; city++) {
@@ -359,7 +453,15 @@ int main(int argc, char **argv) {
         }
 
 
-        // REGION: calculation of the average grade of each student, median, min and max grades and standard deviation for each REGION
+        /*
+        NÍVEL REGIÃO:
+        Para cada região, calcula estatísticas usando as médias dos alunos
+        de todas as suas cidades.
+
+        Paralelização:
+        - Cada região é independente.
+        - Cada thread escreve em uma posição distinta de out_region.
+        */
         #pragma omp for 
         for (int region = 0; region < R; region++) {
 
@@ -386,16 +488,25 @@ int main(int argc, char **argv) {
         }
 
 
-        // BRASIL: calculation of the average grade of each student, median, min and max grades and standard deviation for the country
-        #pragma omp for reduction(+:soma_brasil)
+        /*
+        NÍVEL BRASIL:
+        Calcula a soma das médias individuais de todos os alunos.
+
+        Como várias threads contribuem para soma_brasil, usa-se reduction
+        para evitar condição de corrida.
+        */        
+       #pragma omp for reduction(+:soma_brasil)
         for (int i = 0; i < R * C * A; i++) 
         {
             soma_brasil += average_to_country[i];
         }
 
+        /*
+        Apenas uma thread deve ordenar o vetor nacional e calcular as
+        estatísticas agregadas do Brasil. Por isso, usa-se single.
+        */
         #pragma omp single
         {
-            // out_country.average = soma_brasil / (R * C * A);
             out_country.average = (float)(soma_brasil / (R * C * A));
 
             qsort(average_to_country, R * C * A, sizeof(float), compare);
@@ -406,16 +517,27 @@ int main(int argc, char **argv) {
 
             out_country.min = average_to_country[0];
             out_country.max = average_to_country[R * C * A - 1];
-        } // end of the single region
+        }
 
         
-        // calculating the awards (best region and best city)
+        /*
+        PREMIAÇÃO:
+        Busca pela melhor região e melhor cidade.
+
+        Estratégia:
+        - Cada thread calcula seus máximos locais.
+        - Depois, os máximos locais são combinados em uma região crítica.
+        */
         float local_max_region = -1.0;
         int local_best_region = 0;
         float local_max_city = -1.0;
         int local_best_city_r = 0;
         int local_best_city_c = 0;
 
+        /*
+        Busca local pela melhor região.
+        nowait evita barreira desnecessária antes da busca por cidade.
+        */
         #pragma omp for nowait
         for (int r = 0; r < R; r++) {
             if (out_region[r].average > local_max_region) {
@@ -423,6 +545,11 @@ int main(int argc, char **argv) {
                 local_best_region = r;
             }
         }
+
+        /*
+        Busca local pela melhor cidade.
+        collapse(2) distribui o trabalho entre regiões e cidades.
+        */
         #pragma omp for collapse(2) nowait
         for (int r = 0; r < R; r++) {
             for (int c = 0; c < C; c++) {
@@ -433,6 +560,12 @@ int main(int argc, char **argv) {
                 }
             }
         }
+
+        /*
+        Região crítica:
+        Necessária para atualizar com segurança os máximos globais,
+        evitando que múltiplas threads escrevam simultaneamente.
+        */
         #pragma omp critical
         {
             if (local_max_region > max_region_avg) {
@@ -446,13 +579,16 @@ int main(int argc, char **argv) {
                 best_city_c = local_best_city_c;
             }
         }
-    } // end of the parallel region
+    } // Fim da região paralela.
     
-    // time measurement and end of the calculation
+    /*
+    Fim da medição de tempo.
+    O tempo calculado corresponde apenas à etapa computacional principal.
+    */
     double end = omp_get_wtime();
     double time = end - start; // total time of the parallel region
 
-    // PRINTS
+    // Impressão dos resultados finais
     print_out_city(out_city, R, C);
     print_out_region(out_region, R);
     print_out_country(out_country);
@@ -462,7 +598,7 @@ int main(int argc, char **argv) {
     // DEBUG PRINT
     // print_average_student(average_to_city, R, C, A);
 
-    // Frees
+    // Liberação de memória alocada dinamicamente
     free_nd(data, 4, (int[]){R, C, A, N});
     free_nd(out_city, 2, (int[]){R, C});
     free_nd(out_region, 1, (int[]){R});
